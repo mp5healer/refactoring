@@ -32,6 +32,9 @@ const prepareNumberFormat = ({
   }).format;
 };
 
+const usd = (value) =>
+  prepareNumberFormat({ style: "currency", currency: "USD" })(value);
+
 const calculateVolumeCredits = ({ performance, playType }) => {
   const defaultVolumeCredits = Math.max(performance.audience - 30, 0);
   const playTypeVolumeCredits = {
@@ -43,20 +46,27 @@ const calculateVolumeCredits = ({ performance, playType }) => {
   return defaultVolumeCredits + playTypeCredit;
 };
 
+const getPlayDetails = ({ performance, plays }) => {
+  const play = plays[performance.playID];
+  const playType = play.type;
+  const playName = play.name;
+  return {
+    playType,
+    playName,
+  };
+};
+
 export function newStatement(invoice, plays) {
   let result = `Statement for ${invoice.customer}\n`;
-  const newFormat = prepareNumberFormat();
-
   const { totalAmount, volumeCredits } = invoice.performances.reduce(
     (newObj, performance) => {
-      const play = plays[performance.playID];
-      const playType = play.type;
+      const { playType, playName } = getPlayDetails({ performance, plays });
       const amount = calculateNewAmount({
         performance,
         playType,
       });
       const volumeCredit = calculateVolumeCredits({ performance, playType });
-      result += `  ${play.name}: ${newFormat(amount / 100)} (${
+      result += `  ${playName}: ${usd(amount / 100)} (${
         performance.audience
       } seats)\n`;
       return {
@@ -66,7 +76,7 @@ export function newStatement(invoice, plays) {
     },
     { totalAmount: 0, volumeCredits: 0 }
   );
-  result += `Amount owed is ${newFormat(totalAmount / 100)}\n`;
+  result += `Amount owed is ${usd(totalAmount / 100)}\n`;
   result += `You earned ${volumeCredits} credits\n`;
   return result;
 }
