@@ -72,11 +72,12 @@ const getPerformanceDetails = ({ performance }) => {
 
 const calculateTotalAmount = ({ performances, plays }) => {
   const totalAmount = performances.reduce((total, performance) => {
-    const { performanceAudience: audience } = getPerformanceDetails({
-      performance,
-    });
+    const { performanceAudience: audience, performancePlayID: key } =
+      getPerformanceDetails({
+        performance,
+      });
     const { playType } = getPlayDetails({
-      key: performance.playID,
+      key,
       plays,
     });
     const amount = calculateNewAmount({
@@ -90,12 +91,13 @@ const calculateTotalAmount = ({ performances, plays }) => {
 
 const calculateTotalVolumeCredits = ({ performances, plays }) => {
   const volumeCredits = performances.reduce((total, performance) => {
+    const { performanceAudience: audience, performancePlayID: key } =
+      getPerformanceDetails({
+        performance,
+      });
     const { playType } = getPlayDetails({
-      key: performance.playID,
+      key,
       plays,
-    });
-    const { performanceAudience: audience } = getPerformanceDetails({
-      performance,
     });
     const volumeCredit = calculateVolumeCredits({ audience, playType });
     return total + volumeCredit;
