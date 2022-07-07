@@ -1,4 +1,4 @@
-export function ugleStatement(invoice, plays) {
+export function uglyStatement(invoice, plays) {
   let totalAmount = 0;
   let volumeCredits = 0;
   let result = `Statement for ${invoice.customer}\n`;
