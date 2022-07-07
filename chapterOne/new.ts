@@ -1,14 +1,14 @@
-const calculateNewAmount = ({ performance, playType }) => {
+const calculateNewAmount = ({ audience, playType }) => {
   const defaultTragedyAmount = 40000;
-  const defaultComedyAmount = 30000 + 300 * performance.audience;
+  const defaultComedyAmount = 30000 + 300 * audience;
   const playTypeAmount = {
     tragedy:
-      performance.audience > 30
-        ? defaultTragedyAmount + 1000 * (performance.audience - 30)
+      audience > 30
+        ? defaultTragedyAmount + 1000 * (audience - 30)
         : defaultTragedyAmount,
     comedy:
-      performance.audience > 20
-        ? defaultComedyAmount + 10000 + 500 * (performance.audience - 20)
+      audience > 20
+        ? defaultComedyAmount + 10000 + 500 * (audience - 20)
         : defaultComedyAmount,
   };
   const amount = playTypeAmount[playType];
@@ -35,10 +35,10 @@ const prepareNumberFormat = ({
 const usd = (value) =>
   prepareNumberFormat({ style: "currency", currency: "USD" })(value);
 
-const calculateVolumeCredits = ({ performance, playType }) => {
-  const defaultVolumeCredits = Math.max(performance.audience - 30, 0);
+const calculateVolumeCredits = ({ audience, playType }) => {
+  const defaultVolumeCredits = Math.max(audience - 30, 0);
   const playTypeVolumeCredits = {
-    comedy: Math.floor(performance.audience / 5),
+    comedy: Math.floor(audience / 5),
   };
   const playTypeCredit = playTypeVolumeCredits[playType]
     ? playTypeVolumeCredits[playType]
@@ -46,8 +46,8 @@ const calculateVolumeCredits = ({ performance, playType }) => {
   return defaultVolumeCredits + playTypeCredit;
 };
 
-const getPlayDetails = ({ performance, plays }) => {
-  const play = plays[performance.playID];
+const getPlayDetails = ({ key, plays }) => {
+  const play = plays[key];
   const playType = play.type;
   const playName = play.name;
   return {
@@ -56,27 +56,78 @@ const getPlayDetails = ({ performance, plays }) => {
   };
 };
 
-export function newStatement(invoice, plays) {
-  let result = `Statement for ${invoice.customer}\n`;
-  const { totalAmount, volumeCredits } = invoice.performances.reduce(
-    (newObj, performance) => {
-      const { playType, playName } = getPlayDetails({ performance, plays });
-      const amount = calculateNewAmount({
+const getInvoiceDetails = ({ invoice }) => {
+  return {
+    invoiceCustomer: invoice.customer,
+    performances: invoice.performances,
+  };
+};
+
+const getPerformanceDetails = ({ performance }) => {
+  return {
+    performancePlayID: performance.playID,
+    performanceAudience: performance.audience,
+  };
+};
+
+const calculateTotalAmount = ({ performances, plays }) => {
+  const totalAmount = performances.reduce((total, performance) => {
+    const { performanceAudience: audience } = getPerformanceDetails({
+      performance,
+    });
+    const { playType } = getPlayDetails({
+      key: performance.playID,
+      plays,
+    });
+    const amount = calculateNewAmount({
+      audience,
+      playType,
+    });
+    return total + amount;
+  }, 0);
+  return totalAmount;
+};
+
+const calculateTotalVolumeCredits = ({ performances, plays }) => {
+  const volumeCredits = performances.reduce((total, performance) => {
+    const { playType } = getPlayDetails({
+      key: performance.playID,
+      plays,
+    });
+    const { performanceAudience: audience } = getPerformanceDetails({
+      performance,
+    });
+    const volumeCredit = calculateVolumeCredits({ audience, playType });
+    return total + volumeCredit;
+  }, 0);
+  return volumeCredits;
+};
+
+const renderPlainText = ({ invoiceCustomer, performances, plays }) => {
+  const totalAmount = calculateTotalAmount({ performances, plays });
+  const volumeCredits = calculateTotalVolumeCredits({ performances, plays });
+  let result = `Statement for ${invoiceCustomer}\n`;
+  performances.forEach((performance) => {
+    const { performanceAudience: audience, performancePlayID } =
+      getPerformanceDetails({
         performance,
-        playType,
       });
-      const volumeCredit = calculateVolumeCredits({ performance, playType });
-      result += `  ${playName}: ${usd(amount / 100)} (${
-        performance.audience
-      } seats)\n`;
-      return {
-        totalAmount: newObj.totalAmount + amount,
-        volumeCredits: newObj.volumeCredits + volumeCredit,
-      };
-    },
-    { totalAmount: 0, volumeCredits: 0 }
-  );
+    const { playType, playName } = getPlayDetails({
+      key: performancePlayID,
+      plays,
+    });
+    const amount = calculateNewAmount({
+      audience,
+      playType,
+    });
+    result += `  ${playName}: ${usd(amount / 100)} (${audience} seats)\n`;
+  });
   result += `Amount owed is ${usd(totalAmount / 100)}\n`;
   result += `You earned ${volumeCredits} credits\n`;
   return result;
+};
+
+export function newStatement(invoice, plays) {
+  const { invoiceCustomer, performances } = getInvoiceDetails({ invoice });
+  return renderPlainText({ invoiceCustomer, performances, plays });
 }
